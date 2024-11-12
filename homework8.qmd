@@ -1,0 +1,260 @@
+---
+title: 'Bios 6301: Assignment 8'
+author: "Yiqing Pan"
+format: pdf
+---
+
+*Due Tuesday, 12 November, 1:00 PM*
+
+$5^{n=day}$ points taken off for each day late.
+
+30 points total.
+
+Submit a single quarto file (named `homework8.qmd`), along with a valid PDF output file. Inside the file, clearly indicate which parts of your responses go with which problems (you may use the original homework document as a template). Add your name as `author` to the file's metadata section. Raw R code/output or word processor files are not acceptable.
+
+Failure to name file `homework8.qmd` or include author name may result in 5 points taken off.
+
+
+
+### Question 1 ###
+
+**15 points**
+
+Install the `readxl` package and run the following
+
+```{r}
+fn <- 'icd10.xlsx'
+if(file.access(fn, mode = 4) == -1) {
+    url <- "https://www.cdc.gov/nhsn/xls/icd10-pcs-pcm-nhsn-opc.xlsx"
+    download.file(url, destfile = fn, mode = 'wb')
+}
+dat <- readxl::read_excel(fn, sheet = 2)
+```
+
+1.  Show the class of `dat`. (1 point)
+
+```{r}
+class(dat)
+```
+
+
+2.  Show the methods available for objects of the given class (if there are multiple classes, show methods for all classes). (3 points)
+
+```{r}
+methods(class = "tbl_df")
+methods(class = "tbl")
+methods(class = "data.frame")
+```
+
+3.  If you call `print(dat)`, what print method is being dispatched? (1 point)
+
+```{r}
+# print(dat)
+# methods("print")
+```
+Since dat is in the tibble class,it uses print.tbl method. 
+
+4.  Set the class of `dat` to be a data.frame. (1 point)
+
+```{r}
+class(dat) <- "data.frame"
+```
+
+
+5.  If you call `print(dat)` again, what print method is being dispatched? (1 point)
+
+```{r}
+#print(dat)
+```
+After changing dat to a data.frame, calling print(dat) would dispatch the print.data.frame method.
+
+Define a new generic function `nUnique` with the code below.
+
+```{r}
+nUnique <- function(x) {
+    UseMethod('nUnique')
+}
+```
+
+6.  Write a default method for `nUnique` to count the number of unique values in an element. (2 points)
+
+```{r}
+nUnique.default <- function(x) {
+    length(unique(x))
+}
+```
+
+
+7.  Check your function (2 points)
+
+```{r}
+#| eval: false
+nUnique(letters) # should return 26
+nUnique(sample(10, 100, replace = TRUE)) # should return 10 (probably)
+```
+
+8.  Write a data.frame method for `nUnique` to operate on data.frame objects.
+This version should return counts for each column in a data.frame. (2 points)
+
+```{r}
+nUnique.data.frame <- function(x) {
+    sapply(x, function(col) length(unique(col)))
+}
+
+```
+
+
+9.  Check your function (2 points)
+
+```{r}
+#| eval: false
+nUnique(dat)
+```
+
+### Question 2 ###
+
+**15 points**
+
+Programming with classes.  The following function will generate random patient information.
+
+```{r}
+makePatient <- function() {
+  vowel <- grep("[aeiou]", letters)
+  cons <- grep("[^aeiou]", letters)
+  name <- paste(sample(LETTERS[cons], 1), sample(letters[vowel], 1), sample(letters[cons], 1), sep='')
+  gender <- factor(sample(0:1, 1), levels=0:1, labels=c('female','male'))
+  dob <- as.Date(sample(7500, 1), origin="1970-01-01")
+  n <- sample(6, 1)
+  doa <- as.Date(sample(1500, n), origin="2010-01-01")
+  pulse <- round(rnorm(n, 80, 10))
+  temp <- round(rnorm(n, 98.4, 0.3), 2)
+  fluid <- round(runif(n), 2)
+  list(name, gender, dob, doa, pulse, temp, fluid)
+}
+```
+
+1.  Create an S3 class `medicalRecord` for objects that are a list with the named elements `name`, `gender`, `date_of_birth`, `date_of_admission`, `pulse`, `temperature`, `fluid_intake`. Note that an individual patient may have multiple measurements for some measurements.  Set the RNG seed to `8` and create a medical record by taking the output of `makePatient`.  Print the medical record, and print the class of the medical record. (5 points)
+
+
+```{r}
+set.seed(8)
+
+medicalRecord <- function() {
+  vowel <- grep("[aeiou]", letters)
+  cons <- grep("[^aeiou]", letters)
+  name <- paste(sample(LETTERS[cons], 1), sample(letters[vowel], 1), sample(letters[cons], 1), sep='')
+  gender <- factor(sample(0:1, 1), levels=0:1, labels=c('female','male'))
+  dob <- as.Date(sample(7500, 1), origin="1970-01-01")
+  n <- sample(6, 1)
+  doa <- as.Date(sample(1500, n), origin="2010-01-01")
+  pulse <- round(rnorm(n, 80, 10))
+  temp <- round(rnorm(n, 98.4, 0.3), 2)
+  fluid <- round(runif(n), 2)
+  list(name = name, gender = gender, dob = dob, doa = doa, pulse = pulse, temp = temp, fluid = fluid)
+}
+
+
+patient <- medicalRecord()
+class(patient) <- "medicalRecord"
+
+print(patient)
+print(class(patient))
+```
+
+2.  Write a `medicalRecord` method for the generic function `mean`, which returns averages for pulse, temperature and fluids. Also write a `medicalRecord` method for `print`, which employs some nice formatting, perhaps arranging measurements by date, and `plot`, that generates a composite plot of measurements over time.  Call each function for the medical record created in part 1. (5 points)
+
+```{r}
+medicalRecord <- function(x) { 
+  UseMethod("medicalRecord")
+}
+
+
+medicalRecord.mean <- function(x) {
+  return(list(
+    mean_pulse = mean(x$pulse),
+    mean_temperature = mean(x$temp),
+    mean_fluid_intake = mean(x$fluid)
+  ))
+}
+
+medicalRecord.print <- function(x) {
+  cat("Name:", x$name, "\n")
+  cat("Gender:", as.character(x$gender), "\n")
+  cat("Date of Birth:", format(x$dob, "%Y-%m-%d"), "\n\n")
+  
+  cat("Test Results:\n")
+  admission_data <- data.frame(
+    date_of_admission = x$doa,
+    pulse = x$pulse,
+    temperature = x$temp,
+    fluid_intake = x$fluid
+  )
+  
+  print(admission_data)
+}
+
+medicalRecord.plot <- function(x) {
+  dates <- x$doa
+  par(mfrow = c(3, 1))
+  
+  plot(dates, x$pulse, type = 'b', xlab = "Date of Admission", ylab = "Pulse")
+  plot(dates, x$temperature, type = 'b', xlab = "Date of Admission", ylab = "Temperature")
+  plot(dates, x$fluid_intake, type = 'b', xlab = "Date of Admission", ylab = "Fluid Intake")
+}
+```
+
+```{r}
+medicalRecord.mean(patient)
+
+medicalRecord.print(patient)
+
+medicalRecord.plot(patient)
+```
+
+3.  Create a further class for a cohort (group) of patients, and write methods for `mean` and `print` which, when applied to a cohort, apply mean or print to each patient contained in the cohort. Hint: think of this as a "container" for patients.  Reset the RNG seed to 8 and create a cohort of ten patients, then show the output for `mean` and `print`. (5 points)
+
+```{r}
+set.seed(8)
+n <- 10
+
+medicalRecord <- function() {
+  vowel <- grep("[aeiou]", letters)
+  cons <- grep("[^aeiou]", letters)
+  name <- paste(sample(LETTERS[cons], 1), sample(letters[vowel], 1), sample(letters[cons], 1), sep='')
+  gender <- factor(sample(0:1, 1), levels=0:1, labels=c('female','male'))
+  dob <- as.Date(sample(7500, 1), origin="1970-01-01")
+  n <- sample(6, 1)
+  doa <- as.Date(sample(1500, n), origin="2010-01-01")
+  pulse <- round(rnorm(n, 80, 10))
+  temp <- round(rnorm(n, 98.4, 0.3), 2)
+  fluid <- round(runif(n), 2)
+  list(name = name, gender = gender, dob = dob, doa = doa, pulse = pulse, temp = temp, fluid = fluid)
+}
+
+sample_cohort <- list()
+  for (i in (1:n)) {
+    patient <- medicalRecord()
+    class(patient) <- "medicalRecord"
+    sample_cohort[[i]] <- patient
+  }
+
+cohort <- function(x) { 
+  UseMethod("cohort")
+}
+
+cohort.mean <- function(x) {
+  lapply(x,medicalRecord.mean)
+}
+
+cohort.print <- function(x) {
+  lapply(x,medicalRecord.print)
+}
+```
+
+
+```{r}
+cohort.mean(sample_cohort)
+
+cohort.print(sample_cohort)
+```
+
